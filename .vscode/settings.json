@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "io.h": "c",
+        "iom32u4.h": "c",
+        "stdbool.h": "c",
+        "interrupt.h": "c"
+    }
+}
