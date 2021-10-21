@@ -4,7 +4,9 @@
             "name": "Linux",
             "compilerPath": "/usr/bin/avr-gcc",
             "cStandard": "c17",
-            "defines": ["__AVR_ATmega32U4__"]
+            "defines": ["__AVR_ATmega32U4__", "BOARD=BOARD_MICRO", "F_CPU=16000000", "F_USB=16000000"],
+            "includePath": ["${workspaceFolder}/**"],
+            "forcedInclude": ["Config/LUFAConfig.h"]
         }
     ],
     "version": 4

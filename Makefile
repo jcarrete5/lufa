@@ -1,22 +1,26 @@
-# File to write to when performing an upload
-AVR_PORT ?= /dev/ttyACM0
+MCU                 = atmega32u4
+ARCH                = AVR8
+BOARD               = MICRO
+F_CPU               = 16000000
+F_USB               = $(F_CPU)
+OPTIMIZATION        = s
+TARGET              = rb3-midi-adapter
+SRC                 = $(TARGET).c Descriptors.c MIDI.c $(LUFA_SRC_USB) $(LUFA_SRC_USBCLASS)
+LUFA_PATH           = lufa/LUFA
+CC_FLAGS            = -DUSE_LUFA_CONFIG_HEADER -IConfig/
+LD_FLAGS            =
+AVRDUDE_PORT       ?= /dev/ttyACM0
+AVRDUDE_PROGRAMMER  = avr109
 
-CC = avr-gcc
-ifdef DEBUG
-CFLAGS = -Og -g -Wall -Wextra -mmcu=atmega32u4 $(DEFS)
-else
-CFLAGS = -Os -Wall -Wextra -mmcu=atmega32u4 $(DEFS)
-endif
-DEFS = -DF_CPU=16000000UL
-TARGET = rb3-midi-adapter
+all:
 
-.PHONY: all
-all: $(TARGET)
+# Include LUFA-specific DMBS extension modules
+DMBS_LUFA_PATH ?= $(LUFA_PATH)/Build/LUFA
+include $(DMBS_LUFA_PATH)/lufa-sources.mk
+include $(DMBS_LUFA_PATH)/lufa-gcc.mk
 
-.PHONY: upload
-upload: $(TARGET)
-	avrdude -p m32u4 -P $(AVR_PORT) -c avr109 -U flash:w:$(TARGET):e
-
-.PHONY: clean
-clean:
-	-$(RM) $(TARGET)
+# Include common DMBS build system modules
+DMBS_PATH      ?= $(LUFA_PATH)/Build/DMBS/DMBS
+include $(DMBS_PATH)/core.mk
+include $(DMBS_PATH)/gcc.mk
+include $(DMBS_PATH)/avrdude.mk
