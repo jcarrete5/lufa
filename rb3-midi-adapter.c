@@ -30,8 +30,8 @@
 
 /** \file
  *
- *  Main source file for the VirtualSerial demo. This file contains the main tasks of
- *  the demo and is responsible for the initial application hardware configuration.
+ *  This file contains the main tasks of the application and is responsible for
+ *  the initial application hardware configuration.
  */
 
 #include "rb3-midi-adapter.h"
@@ -70,7 +70,13 @@ USB_ClassInfo_CDC_Device_t RB3_MIDI_Adapter_CDC_Interface =
  *  used like any regular character stream in the C APIs.
  */
 static FILE USBSerialStream;
-
+static struct hid_report prev_hid_report  = {0};
+static struct hid_report cur_hid_report = {
+    .buttons = {0x00, 0x00, 0x08},
+    .d1 = {0x7f, 0x7f, 0x7f, 0x7f, 0x00, 0x00, 0x00, 0x00},
+    .velocity = {0x00, 0x00, 0x00, 0x00},
+    .d2 = {0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x02, 0x00, 0x02, 0x00, 0x02, 0x00}
+};
 
 /** Main program entry point. This routine contains the overall program flow, including initial
  *  setup of all components and the main program loop.
@@ -92,40 +98,50 @@ int main(void)
 
         CDC_Device_USBTask(&RB3_MIDI_Adapter_CDC_Interface);
         USB_USBTask();
+        MIDI_Task(&cur_hid_report, &USBSerialStream);
 
-        int16_t usart_recv = Serial_ReceiveByte();
-        if (usart_recv >= 0) {
-            MIDI_HandleByte((uint8_t)usart_recv, &USBSerialStream);
+        /* Send HID report if it changed */
+        if (!HIDReport_AreEqual(&cur_hid_report, &prev_hid_report)) {
+            HIDReport_Send(&cur_hid_report, &USBSerialStream);
+
+            /* Update previous report */
+            memcpy(prev_hid_report.buttons, cur_hid_report.buttons, 3);
+            memcpy(prev_hid_report.velocity, cur_hid_report.velocity, 4);
         }
     }
 }
 
-/** Configures the board hardware and chip peripherals for the demo's functionality. */
+/** USART receiver interrupt to handle incoming MIDI data on the RX pin */
+ISR(USART1_RX_vect) {
+    MIDI_EnqueueByte((uint8_t)UDR1);
+}
+
+/** Configures the board hardware and chip peripherals */
 void SetupHardware(void)
 {
-#if (ARCH == ARCH_AVR8)
     /* Disable watchdog if enabled by bootloader/fuses */
     MCUSR &= ~(1 << WDRF);
     wdt_disable();
 
     /* Disable clock division */
     clock_prescale_set(clock_div_1);
-#elif (ARCH == ARCH_XMEGA)
-    /* Start the PLL to multiply the 2MHz RC oscillator to 32MHz and switch the CPU core to run from it */
-    XMEGACLK_StartPLL(CLOCK_SRC_INT_RC2MHZ, 2000000, F_CPU);
-    XMEGACLK_SetCPUClockSource(CLOCK_SRC_PLL);
-
-    /* Start the 32MHz internal RC oscillator and start the DFLL to increase it to 48MHz using the USB SOF as a reference */
-    XMEGACLK_StartInternalOscillator(CLOCK_SRC_INT_RC32MHZ);
-    XMEGACLK_StartDFLL(CLOCK_SRC_INT_RC32MHZ, DFLL_REF_INT_USBSOF, F_USB);
-
-    PMIC.CTRL = PMIC_LOLVLEN_bm | PMIC_MEDLVLEN_bm | PMIC_HILVLEN_bm;
-#endif
 
     /* Hardware Initialization */
-    Serial_Init(MIDI_BAUD_RATE, false);
+    USART_Init();
     LEDs_Init();
     USB_Init();
+}
+
+void USART_Init() {
+#define BAUD MIDI_BAUD_RATE
+#include <util/setbaud.h>
+    /* Set baud rate */
+    UBRR1 = UBRR_VALUE;
+#undef BAUD
+    /* Enable USART receiver and receiver interrupts */
+    UCSR1B |= _BV(RXEN1) | _BV(RXCIE1);
+    /* Configure Rx pin as input */
+    PORTD |= _BV(PORTD2);
 }
 
 /** Event handler for the library USB Connection event. */

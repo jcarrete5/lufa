@@ -41,16 +41,19 @@
         #include <avr/wdt.h>
         #include <avr/power.h>
         #include <avr/interrupt.h>
+        #include <util/atomic.h>
         #include <string.h>
         #include <stdio.h>
+        #include <string.h>
+        #include <stdbool.h>
 
         #include "Descriptors.h"
         #include "MIDI.h"
+        #include "hidreport.h"
 
         #include <LUFA/Drivers/Board/LEDs.h>
         #include <LUFA/Drivers/USB/USB.h>
         #include <LUFA/Platform/Platform.h>
-        #include <LUFA/Drivers/Peripheral/Serial.h>
 
     /* Macros: */
         /** LED mask for the library LED driver, to indicate that the USB interface is not ready. */
@@ -65,9 +68,9 @@
         /** LED mask for the library LED driver, to indicate that an error has occurred in the USB interface. */
         #define LEDMASK_USB_ERROR        (LEDS_LED1 | LEDS_LED3)
 
-    /* Function Prototypes: */
+    /* Forward Declarations: */
         void SetupHardware(void);
-        void CheckJoystickMovement(void);
+        void USART_Init(void);
 
         void EVENT_USB_Device_Connect(void);
         void EVENT_USB_Device_Disconnect(void);
