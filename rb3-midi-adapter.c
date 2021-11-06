@@ -36,46 +36,35 @@
 
 #include "rb3-midi-adapter.h"
 
-/** LUFA CDC Class driver interface configuration and state information. This structure is
- *  passed to all CDC Class driver functions, so that multiple instances of the same class
- *  within a device can be differentiated from one another.
- */
-USB_ClassInfo_CDC_Device_t RB3_MIDI_Adapter_CDC_Interface =
-    {
-        .Config =
-            {
-                .ControlInterfaceNumber   = INTERFACE_ID_CDC_CCI,
-                .DataINEndpoint           =
-                    {
-                        .Address          = CDC_TX_EPADDR,
-                        .Size             = CDC_TXRX_EPSIZE,
-                        .Banks            = 1,
-                    },
-                .DataOUTEndpoint =
-                    {
-                        .Address          = CDC_RX_EPADDR,
-                        .Size             = CDC_TXRX_EPSIZE,
-                        .Banks            = 1,
-                    },
-                .NotificationEndpoint =
-                    {
-                        .Address          = CDC_NOTIFICATION_EPADDR,
-                        .Size             = CDC_NOTIFICATION_EPSIZE,
-                        .Banks            = 1,
-                    },
-            },
-    };
-
-/** Standard file stream for the CDC interface when set up, so that the virtual CDC COM port can be
- *  used like any regular character stream in the C APIs.
- */
-static FILE USBSerialStream;
-static struct hid_report prev_hid_report  = {0};
 static struct hid_report cur_hid_report = {
-    .buttons = {0x00, 0x00, 0x08},
+    .btns = 0x0000,
+    .hat = HAT_NEUTRAL,
     .d1 = {0x7f, 0x7f, 0x7f, 0x7f, 0x00, 0x00, 0x00, 0x00},
     .velocity = {0x00, 0x00, 0x00, 0x00},
     .d2 = {0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x02, 0x00, 0x02, 0x00, 0x02, 0x00}
+};
+
+/** Buffer to hold the previously generated HID report, for comparison purposes inside the HID class driver. */
+static uint8_t PrevHIDReportBuffer[sizeof(struct hid_report)];
+
+/** LUFA HID Class driver interface configuration and state information. This structure is
+ *  passed to all HID Class driver functions, so that multiple instances of the same class
+ *  within a device can be differentiated from one another.
+ */
+USB_ClassInfo_HID_Device_t Generic_HID_Interface =
+{
+    .Config =
+        {
+            .InterfaceNumber              = INTERFACE_ID_GenericHID,
+            .ReportINEndpoint             =
+                {
+                    .Address              = GENERIC_IN_EPADDR,
+                    .Size                 = GENERIC_EPSIZE,
+                    .Banks                = 1,
+                },
+            .PrevReportINBuffer           = PrevHIDReportBuffer,
+            .PrevReportINBufferSize       = sizeof(PrevHIDReportBuffer),
+        },
 };
 
 /** Main program entry point. This routine contains the overall program flow, including initial
@@ -85,40 +74,32 @@ int main(void)
 {
     SetupHardware();
 
-    /* Create a regular character stream for the interface so that it can be used with the stdio.h functions */
-    CDC_Device_CreateStream(&RB3_MIDI_Adapter_CDC_Interface, &USBSerialStream);
-
     LEDs_SetAllLEDs(LEDMASK_USB_NOTREADY);
     GlobalInterruptEnable();
 
     for (;;)
     {
-        /* Must throw away unused bytes from the host, or it will lock up while waiting for the device */
-        CDC_Device_ReceiveByte(&RB3_MIDI_Adapter_CDC_Interface);
-
-        CDC_Device_USBTask(&RB3_MIDI_Adapter_CDC_Interface);
-        USB_USBTask();
-        MIDI_Task(&cur_hid_report, &USBSerialStream);
-
-        /* Send HID report if it changed */
-        if (!HIDReport_AreEqual(&cur_hid_report, &prev_hid_report)) {
-            HIDReport_Send(&cur_hid_report, &USBSerialStream);
-
-            /* Update previous report */
-            memcpy(prev_hid_report.buttons, cur_hid_report.buttons, 3);
-            memcpy(prev_hid_report.velocity, cur_hid_report.velocity, 4);
-        }
+        HID_Device_USBTask(&Generic_HID_Interface);
+        PinTask();
+        MIDI_Task(&cur_hid_report);
     }
 }
 
-/** USART receiver interrupt to handle incoming MIDI data on the RX pin */
-ISR(USART1_RX_vect) {
-    MIDI_EnqueueByte((uint8_t)UDR1);
+void PinTask(void) {
+    static int prev = 0;
+    int cur = (START_BTN_PIN & _BV(START_BTN)) > 0 ? 0 : 1;
+    if (cur == prev) return;
+    prev = cur;
+
+    if (cur == 1) {
+        HIDReport_SetStartBtn(&cur_hid_report);
+    } else {
+        HIDReport_ClearStartBtn(&cur_hid_report);
+    }
 }
 
 /** Configures the board hardware and chip peripherals */
-void SetupHardware(void)
-{
+void SetupHardware(void) {
     /* Disable watchdog if enabled by bootloader/fuses */
     MCUSR &= ~(1 << WDRF);
     wdt_disable();
@@ -130,18 +111,28 @@ void SetupHardware(void)
     USART_Init();
     LEDs_Init();
     USB_Init();
+
+    /* Setup input pins */
+    START_BTN_PORT |= _BV(START_BTN);
 }
 
 void USART_Init() {
-#define BAUD MIDI_BAUD_RATE
-#include <util/setbaud.h>
+    #define BAUD MIDI_BAUD_RATE
+    #include <util/setbaud.h>
     /* Set baud rate */
     UBRR1 = UBRR_VALUE;
-#undef BAUD
+    #undef BAUD
+
     /* Enable USART receiver and receiver interrupts */
     UCSR1B |= _BV(RXEN1) | _BV(RXCIE1);
+
     /* Configure Rx pin as input */
     PORTD |= _BV(PORTD2);
+}
+
+/** USART receiver interrupt to handle incoming MIDI data on the RX pin */
+ISR(USART1_RX_vect) {
+    MIDI_EnqueueByte((uint8_t)UDR1);
 }
 
 /** Event handler for the library USB Connection event. */
@@ -150,36 +141,71 @@ void EVENT_USB_Device_Connect(void)
     LEDs_SetAllLEDs(LEDMASK_USB_ENUMERATING);
 }
 
+/** Event handler for the library USB Disconnection event. */
+void EVENT_USB_Device_Disconnect(void)
+{
+	LEDs_SetAllLEDs(LEDMASK_USB_NOTREADY);
+}
+
 /** Event handler for the library USB Configuration Changed event. */
 void EVENT_USB_Device_ConfigurationChanged(void)
 {
-    bool ConfigSuccess = true;
+	bool ConfigSuccess = true;
 
-    ConfigSuccess &= CDC_Device_ConfigureEndpoints(&RB3_MIDI_Adapter_CDC_Interface);
+	ConfigSuccess &= HID_Device_ConfigureEndpoints(&Generic_HID_Interface);
 
-    LEDs_SetAllLEDs(ConfigSuccess ? LEDMASK_USB_READY : LEDMASK_USB_ERROR);
+	USB_Device_EnableSOFEvents();
+
+	LEDs_SetAllLEDs(ConfigSuccess ? LEDMASK_USB_READY : LEDMASK_USB_ERROR);
 }
 
 /** Event handler for the library USB Control Request reception event. */
 void EVENT_USB_Device_ControlRequest(void)
 {
-    CDC_Device_ProcessControlRequest(&RB3_MIDI_Adapter_CDC_Interface);
+    HID_Device_ProcessControlRequest(&Generic_HID_Interface);
 }
 
-/** CDC class driver callback function the processing of changes to the virtual
- *  control lines sent from the host..
- *
- *  \param[in] CDCInterfaceInfo  Pointer to the CDC class interface configuration structure being referenced
- */
-void EVENT_CDC_Device_ControLineStateChanged(USB_ClassInfo_CDC_Device_t *const CDCInterfaceInfo)
+/** Event handler for the USB device Start Of Frame event. */
+void EVENT_USB_Device_StartOfFrame(void)
 {
-    /* You can get changes to the virtual CDC lines in this callback; a common
-       use-case is to use the Data Terminal Ready (DTR) flag to enable and
-       disable CDC communications in your application when set to avoid the
-       application blocking while waiting for a host to become ready and read
-       in the pending data from the USB endpoints.
-    */
-    bool HostReady = (CDCInterfaceInfo->State.ControlLineStates.HostToDevice & CDC_CONTROL_LINE_OUT_DTR) != 0;
+	HID_Device_MillisecondElapsed(&Generic_HID_Interface);
+}
 
-    (void)HostReady;
+/** HID class driver callback function for the creation of HID reports to the host.
+ *
+ *  \param[in]     HIDInterfaceInfo  Pointer to the HID class interface configuration structure being referenced
+ *  \param[in,out] ReportID    Report ID requested by the host if non-zero, otherwise callback should set to the generated report ID
+ *  \param[in]     ReportType  Type of the report to create, either HID_REPORT_ITEM_In or HID_REPORT_ITEM_Feature
+ *  \param[out]    ReportData  Pointer to a buffer where the created report should be stored
+ *  \param[out]    ReportSize  Number of bytes written in the report (or zero if no report is to be sent)
+ *
+ *  \return Boolean \c true to force the sending of the report, \c false to let the library determine if it needs to be sent
+ */
+bool CALLBACK_HID_Device_CreateHIDReport(USB_ClassInfo_HID_Device_t* const HIDInterfaceInfo,
+                                         uint8_t* const ReportID,
+                                         const uint8_t ReportType,
+                                         void* ReportData,
+                                         uint16_t* const ReportSize)
+{
+    memcpy(ReportData, &cur_hid_report, sizeof(cur_hid_report));
+	*ReportSize = sizeof(struct hid_report);
+    HIDReport_Age(&cur_hid_report);
+	return false;
+}
+
+/** HID class driver callback function for the processing of HID reports from the host.
+ *
+ *  \param[in] HIDInterfaceInfo  Pointer to the HID class interface configuration structure being referenced
+ *  \param[in] ReportID    Report ID of the received report from the host
+ *  \param[in] ReportType  The type of report that the host has sent, either HID_REPORT_ITEM_Out or HID_REPORT_ITEM_Feature
+ *  \param[in] ReportData  Pointer to a buffer where the received report has been stored
+ *  \param[in] ReportSize  Size in bytes of the received HID report
+ */
+void CALLBACK_HID_Device_ProcessHIDReport(USB_ClassInfo_HID_Device_t* const HIDInterfaceInfo,
+                                          const uint8_t ReportID,
+                                          const uint8_t ReportType,
+                                          const void* ReportData,
+                                          const uint16_t ReportSize)
+{
+    // TODO: Maybe signal something?
 }

@@ -1,9 +1,11 @@
 #include <stdlib.h>
 #include <stdbool.h>
+#include <string.h>
 #include <util/atomic.h>
 
 #include "MIDI.h"
-#include "padconfig.h"
+#include "PadConfig.h"
+#include "AppConfig.h"
 
 
 union MIDIByte {
@@ -24,56 +26,51 @@ struct node {
 };
 
 static struct {
-    int count;
     int data_idx;
     union MIDIByte data[3];
 }
 state = {
     .data_idx = 1,
-    .count = 0
 };
 static struct node *volatile head = NULL, *volatile tail = NULL;
 
 /* Latest MIDI status byte received. Determines how to parse subsequent bytes. */
 #define CUR_STATUS state.data[0].status
 
-static void HandleStatus(uint8_t byte, FILE *s) {
+static void HandleStatus(uint8_t byte) {
     CUR_STATUS.code = byte >> 4;
     CUR_STATUS.channel = byte & 0x0f;
     state.data_idx = 1;
-
-    fprintf(s, "[%d] (%#02x) Code: %x; Channel: %u\r\n",
-            state.count++, byte, CUR_STATUS.code, CUR_STATUS.channel + 1);
 }
 
-static void HandleByte(uint8_t byte, struct hid_report *cur, FILE *s) {
+static void HandleByte(uint8_t byte, struct hid_report *cur) {
     /* Ignore timing clock status messages as they are not needed */
     if (byte == MIDI_SYSTEM_TIMING_CLOCK) return;
 
     if (MIDI_IS_STATUS_BYTE(byte)) {
-        HandleStatus(byte, s);
+        HandleStatus(byte);
     } else {
         switch (CUR_STATUS.code) {
             case MIDI_NoteOn:
                 if (state.data_idx == 1) {
                     state.data[state.data_idx++].note = byte;
-                    fprintf(s, "\tMIDI Note: %u\r\n", byte);
                 } else if (state.data_idx == 2) {
                     uint8_t vel = byte;
                     state.data[state.data_idx++].velocity = vel;
-                    fprintf(s, "\tVelocity: %u\r\n", vel);
 
-                    int32_t btns = midi_btn_map[state.data[1].note];
-                    int8_t vel_idx = midi_vel_map[state.data[1].note];
+                    /* Ignore vel = 0. Notes are signalled off after a period of time instead. */
+                    if (vel == 0) break;
 
-                    /* Ignore unmapped midi notes */
-                    if (btns >= 0) {
-                        HIDReport_Update(cur, (uint32_t)btns, vel, vel_idx);
-                    }
+                    struct midi_mapping map = midi_map[state.data[1].note];
+
+                    if (memcmp(&map, &null_mapping, sizeof(struct midi_mapping)) == 0) break;
+
+                    HIDReport_Set(cur, map, vel);
                 }
                 break;
             default:
-                fprintf(s, "\t?: %#02x\r\n", byte);
+                // TODO: Set some LED output to indicate an unhandled message type received
+                break;
         }
     }
 }
@@ -98,11 +95,12 @@ static bool DequeueByte(uint8_t *out) {
     return true;
 }
 
-void MIDI_Task(struct hid_report *r, FILE *s) {
+void MIDI_Task(struct hid_report *r) {
     uint8_t byte;
+    uint8_t count = 0;
 
-    if (DequeueByte(&byte)) {
-        HandleByte(byte, r, s);
+    while (count++ < MIDI_TASK_MAX_NUM_PROCESS_BYTES && DequeueByte(&byte)) {
+        HandleByte(byte, r);
     }
 }
 
