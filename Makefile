@@ -5,7 +5,8 @@ F_CPU               = 16000000
 F_USB               = $(F_CPU)
 OPTIMIZATION        = s
 TARGET              = rb3-midi-adapter
-SRC                 = $(TARGET).c Descriptors.c MIDI.c HIDReport.c PadConfig.c $(LUFA_SRC_USB) $(LUFA_SRC_USBCLASS)
+SRC                 = src/$(TARGET).c src/Descriptors.c src/MIDI.c src/HIDReport.c src/PadConfig.c \
+                      $(LUFA_SRC_USB) $(LUFA_SRC_USBCLASS)
 LUFA_PATH           = lufa/LUFA
 DEFS				=  # User-specified defines
 CC_FLAGS            = -DUSE_LUFA_CONFIG_HEADER -IConfig/ $(DEFS)
