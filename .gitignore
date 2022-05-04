@@ -1,7 +1,10 @@
 # Build
 rb3-midi-adapter
 obj/
+*.bin
+*.eep
 *.elf
 *.hex
+*.lss
 *.map
-*.eep
+*.sym
