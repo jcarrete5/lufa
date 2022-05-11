@@ -26,3 +26,8 @@ DMBS_PATH      ?= $(LUFA_PATH)/Build/DMBS/DMBS
 include $(DMBS_PATH)/core.mk
 include $(DMBS_PATH)/gcc.mk
 include $(DMBS_PATH)/avrdude.mk
+
+# Reads in the target EEPROM memory using AVRDUDE
+avrdude-read-ee: $(TARGET)-data.eep $(MAKEFILE_LIST)
+	@echo $(MSG_AVRDUDE_CMD) Reading device \"$(AVRDUDE_MCU)\" EEPROM using \"$(AVRDUDE_PROGRAMMER)\" on port \"$(AVRDUDE_PORT)\"
+	avrdude $(BASE_AVRDUDE_FLAGS) -U eeprom:r:$< $(AVRDUDE_FLAGS)
