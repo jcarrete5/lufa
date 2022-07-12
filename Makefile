@@ -3,7 +3,7 @@ ARCH                = AVR8
 BOARD               = MICRO
 F_CPU               = 16000000
 F_USB               = $(F_CPU)
-OPTIMIZATION        = s
+OPTIMIZATION        = 3
 TARGET              = rb3-midi-adapter
 SRC                 = src/$(TARGET).c src/Descriptors.c src/MIDI.c src/HIDReport.c src/PadConfig.c \
                       $(LUFA_SRC_USB) $(LUFA_SRC_USBCLASS)
