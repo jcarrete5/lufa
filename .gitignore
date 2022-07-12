@@ -8,3 +8,6 @@ obj/
 *.lss
 *.map
 *.sym
+
+# Generated files
+src/PadConfig.c

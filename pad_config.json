@@ -1,0 +1,11 @@
+{
+    "RED_PAD": [38],
+    "RED_CYM": [],
+    "YEL_PAD": [48],
+    "YEL_CYM": [23, 42, 46],
+    "BLU_PAD": [45],
+    "BLU_CYM": [51],
+    "GRN_PAD": [43],
+    "GRN_CYM": [49],
+    "KICK": [36]
+}

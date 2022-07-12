@@ -5,7 +5,7 @@
 
 /* Button flag bit positions */
 #define SELECT      8
-#define START       9
+#define START       9u
 #define PAD         10
 #define CYMBAL      11
 #define PS          12
@@ -24,15 +24,26 @@
 #define HAT_RIGHT       0x02
 
 enum color {
-    RED_COLOR, YELLOW_COLOR, BLUE_COLOR, GREEN_COLOR, ORANGE_COLOR, NULL_COLOR
+    RED_COLOR,
+    YELLOW_COLOR,
+    BLUE_COLOR,
+    GREEN_COLOR,
+    ORANGE_COLOR,
+    NULL_COLOR,
 };
 
 enum pad_type {
-    PAD_TYPE, CYMBAL_TYPE, NULL_TYPE
+    PAD_TYPE,
+    CYMBAL_TYPE,
+    NULL_TYPE,
 };
 
 enum vel_byte {
-    YELLOW_VEL, RED_VEL, GREEN_VEL, BLUE_VEL, NULL_VEL
+    YELLOW_VEL,
+    RED_VEL,
+    GREEN_VEL,
+    BLUE_VEL,
+    NULL_VEL,
 };
 
 struct midi_mapping {
