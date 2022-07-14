@@ -11,6 +11,7 @@
 #include "Descriptors.h"
 #include "MIDI.h"
 #include "HIDReport.h"
+#include "PadConfig.h"
 
 
 #define START_BTN 1

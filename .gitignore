@@ -10,4 +10,4 @@ obj/
 *.sym
 
 # Generated files
-src/PadConfig.c
+src/PadConfig.h

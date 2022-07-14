@@ -14,7 +14,10 @@ LD_FLAGS            =
 AVRDUDE_PORT       ?= /dev/ttyACM0
 AVRDUDE_PROGRAMMER  = avr109
 
-all:
+all: src/PadConfig.h
+
+%: %.mako
+	mako-render $< > $@
 
 # Include LUFA-specific DMBS extension modules
 DMBS_LUFA_PATH ?= $(LUFA_PATH)/Build/LUFA
@@ -31,6 +34,3 @@ include $(DMBS_PATH)/avrdude.mk
 avrdude-read-ee: $(TARGET)-data.eep $(MAKEFILE_LIST)
 	@echo $(MSG_AVRDUDE_CMD) Reading device \"$(AVRDUDE_MCU)\" EEPROM using \"$(AVRDUDE_PROGRAMMER)\" on port \"$(AVRDUDE_PORT)\"
 	avrdude $(BASE_AVRDUDE_FLAGS) -U eeprom:r:$< $(AVRDUDE_FLAGS)
-
-src/PadConfig.c: pad_config.json gen_pad_config.py src/PadConfig.c.in
-	./gen_pad_config.py

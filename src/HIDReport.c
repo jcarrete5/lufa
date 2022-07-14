@@ -3,7 +3,7 @@
 
 #include "HIDReport.h"
 #include "PadConfig.h"
-#include "AppConfig.h"
+#include "../Config/AppConfig.h"
 
 
 struct node;

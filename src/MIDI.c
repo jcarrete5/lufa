@@ -1,6 +1,5 @@
 #include <stdlib.h>
 #include <stdbool.h>
-#include <string.h>
 #include <util/atomic.h>
 
 #include "MIDI.h"
@@ -61,11 +60,12 @@ static void HandleByte(uint8_t byte, struct hid_report *cur) {
                     /* Ignore vel = 0. Notes are signalled off after a period of time instead. */
                     if (vel == 0) break;
 
-                    struct midi_mapping map = midi_map[state.data[1].note];
+                    const struct midi_mapping *map = GetMIDIMapping(state.data[1].note);
+                    if (map == NULL) {
+                        break;
+                    }
 
-                    if (memcmp(&map, &null_mapping, sizeof(struct midi_mapping)) == 0) break;
-
-                    HIDReport_Set(cur, map, vel);
+                    HIDReport_Set(cur, *map, vel);
                 }
                 break;
             default:
