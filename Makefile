@@ -5,16 +5,18 @@ F_CPU               = 16000000
 F_USB               = $(F_CPU)
 OPTIMIZATION        = 3
 TARGET              = rb3-midi-adapter
-SRC                 = src/$(TARGET).c src/Descriptors.c src/MIDI.c src/HIDReport.c src/PadConfig.c \
+SRCDIR             := src
+SRC                 = $(SRCDIR)/$(TARGET).c $(SRCDIR)/Descriptors.c $(SRCDIR)/MIDI.c $(SRCDIR)/HIDReport.c $(SRCDIR)/PadConfig.c \
                       $(LUFA_SRC_USB) $(LUFA_SRC_USBCLASS)
 LUFA_PATH           = lufa/LUFA
 DEFS				=  # User-specified defines
 CC_FLAGS            = -DUSE_LUFA_CONFIG_HEADER -IConfig/ $(DEFS)
 LD_FLAGS            =
+C_STANDARD          = gnu17
 AVRDUDE_PORT       ?= /dev/ttyACM0
 AVRDUDE_PROGRAMMER  = avr109
 
-all: src/PadConfig.h
+all: $(SRCDIR)/PadConfig.h
 
 %: %.mako
 	mako-render $< > $@
@@ -34,3 +36,9 @@ include $(DMBS_PATH)/avrdude.mk
 avrdude-read-ee: $(TARGET)-data.eep $(MAKEFILE_LIST)
 	@echo $(MSG_AVRDUDE_CMD) Reading device \"$(AVRDUDE_MCU)\" EEPROM using \"$(AVRDUDE_PROGRAMMER)\" on port \"$(AVRDUDE_PORT)\"
 	avrdude $(BASE_AVRDUDE_FLAGS) -U eeprom:r:$< $(AVRDUDE_FLAGS)
+
+cleanmako:
+	@echo $(MSG_REMOVE_CMD) Removing mako generated files of \"$(TARGET)\"
+	find $(SRCDIR)/ -type f -name *.mako | sed 's/\.mako//' | xargs $(RM)
+
+mostlyclean: cleanmako

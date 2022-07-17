@@ -17,35 +17,31 @@
         "kick",
     }
     used = set()
-    try:
-        for k, v in config.items():
-            try:
-                valid_keys.remove(k)
-            except KeyError:
+    for k, v in config.items():
+        try:
+            valid_keys.remove(k)
+        except KeyError:
+            raise ValueError(
+                f"invalid pad value specified or specified more than once: {k}"
+            )
+        for note in v:
+            if note in used:
+                raise ValueError("note value already used")
+            if note < 0 or note > 127:
                 raise ValueError(
-                    f"invalid pad value specified or specified more than once: {k}"
+                    "note value must be in the half-open range [0, 128)"
                 )
-            for note in v:
-                if note in used:
-                    raise ValueError("note value already used")
-                if note < 0 or note > 127:
-                    raise ValueError(
-                        "note value must be in the half-open range [0, 128)"
-                    )
-                used.add(note)
-    except Exception:
-        raise ValueError("invalid config value")
+            used.add(note)
 
     del used, note, k, v, valid_keys
 %>\
 <%def name="gen_cases(key, return_value)">\
-    % if not config[key]:
-        <% return STOP_RENDERING %>
-    % endif
     % for note in config[key]:
     case ${note}:
     % endfor
-        return ${return_value};\
+    % if config[key]:
+        return ${return_value};
+    % endif
 </%def>\
 #ifndef PADCONFIG_H
 #define PADCONFIG_H
@@ -114,15 +110,15 @@ extern struct midi_mapping kick;
 
 static inline const struct midi_mapping *GetMIDIMapping(uint8_t midi_note) {
     switch (midi_note) {
-${gen_cases("red pad", "&red_pad")}
-${gen_cases("red cymbal", "&red_cymbal")}
-${gen_cases("yellow pad", "&yellow_pad")}
-${gen_cases("yellow cymbal", "&yellow_cymbal")}
-${gen_cases("blue pad", "&blue_pad")}
-${gen_cases("blue cymbal", "&blue_cymbal")}
-${gen_cases("green pad", "&green_pad")}
-${gen_cases("green cymbal", "&green_cymbal")}
-${gen_cases("kick", "&kick")}
+${gen_cases("red pad", "&red_pad")}\
+${gen_cases("red cymbal", "&red_cymbal")}\
+${gen_cases("yellow pad", "&yellow_pad")}\
+${gen_cases("yellow cymbal", "&yellow_cymbal")}\
+${gen_cases("blue pad", "&blue_pad")}\
+${gen_cases("blue cymbal", "&blue_cymbal")}\
+${gen_cases("green pad", "&green_pad")}\
+${gen_cases("green cymbal", "&green_cymbal")}\
+${gen_cases("kick", "&kick")}\
     default:
         return NULL;
     }
