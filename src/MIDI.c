@@ -18,12 +18,6 @@ union MIDIByte {
     uint8_t prog_num;
 };
 
-struct node;
-struct node {
-    uint8_t data;
-    struct node *next;
-};
-
 static struct {
     int data_idx;
     union MIDIByte data[3];
@@ -31,10 +25,26 @@ static struct {
 state = {
     .data_idx = 1,
 };
-static struct node *volatile head = NULL, *volatile tail = NULL;
 
 /* Latest MIDI status byte received. Determines how to parse subsequent bytes. */
 #define CUR_STATUS state.data[0].status
+
+/// MIDI circular buffer size.
+#define BUFFER_SIZE 256u
+
+/// Circular buffer for incoming MIDI bytes.
+static struct {
+    int read;           ///< Current read index for buffer.
+    int write;          ///< Current write index for buffer.
+    int count;          ///< Incremented on write, decremented on read.
+    uint8_t data[BUFFER_SIZE];  ///< Buffer data.
+}
+buffer = {
+    .read = 0,
+    .write = 0,
+    .count = 0,
+    .data = {0},
+};
 
 static void HandleStatus(uint8_t byte) {
     CUR_STATUS.code = byte >> 4;
@@ -75,21 +85,21 @@ static void HandleByte(uint8_t byte, struct hid_report *cur) {
     }
 }
 
-/*
- * Dequeue a byte from the queue and store the result in *out.
- * Return true if there was data to dequeue otherwise return false.
+/**
+ * @brief Dequeue a byte from the queue and store the result in *out.
+ *
+ * @return true if there was data to dequeue otherwise return false.
  */
 static bool DequeueByte(uint8_t *out) {
-    if (head == NULL) return false;
-
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-        *out = head->data;
-        struct node *t = head->next;
-        free(head);
-        head = t;
-        if (head == NULL) {
-            tail = NULL;
+        if (buffer.count == 0) {
+            return false;
         }
+        *out = buffer.data[buffer.read++];
+        if (buffer.read >= BUFFER_SIZE) {
+            buffer.read = 0;
+        }
+        --buffer.count;
     }
 
     return true;
@@ -105,19 +115,11 @@ void MIDI_Task(struct hid_report *r) {
 }
 
 void MIDI_EnqueueByte(uint8_t b) {
-    /* TODO: Maybe add a filter here to avoid wasting time and space with data
-       we don't care about i.e. timing bytes. */
-
-    struct node *new_node = malloc(sizeof(struct node));
-    new_node->data = b;
-    new_node->next = NULL;
-
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-        if (head == NULL) {
-            head = new_node;
-        } else {
-            tail->next = new_node;
+        buffer.data[buffer.write++] = b;
+        if (buffer.write >= BUFFER_SIZE) {
+            buffer.write = 0;
         }
-        tail = new_node;
+        ++buffer.count;
     }
 }
