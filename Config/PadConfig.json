@@ -2,10 +2,10 @@
     "red pad": [38],
     "red cymbal": [],
     "yellow pad": [48],
-    "yellow cymbal": [23, 42, 46],
+    "yellow cymbal": [42, 46, 49],
     "blue pad": [45],
-    "blue cymbal": [51],
+    "blue cymbal": [44, 51],
     "green pad": [43],
-    "green cymbal": [49],
+    "green cymbal": [57],
     "kick": [36]
 }
