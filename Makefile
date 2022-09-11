@@ -18,6 +18,8 @@ AVRDUDE_PROGRAMMER  = avr109
 
 all: $(SRCDIR)/PadConfig.h
 
+$(SRCDIR)/PadConfig.h: Config/PadConfig.json
+
 %: %.mako
 	mako-render $< > $@
 
