@@ -6,14 +6,16 @@
 #include "../Config/AppConfig.h"
 
 
-struct node;
-struct node {
-    struct node *next;
-    struct midi_mapping map;
-    uint8_t age;
-};
-
-static struct node *head = NULL;
+#define BUFFER_SIZE 16
+static struct {
+    int read;
+    int write;
+    int count;
+    struct node {
+        struct midi_mapping map;
+        uint8_t age;
+    } data[BUFFER_SIZE];
+} buffer;
 
 /**
  * Convert MIDI velocity value to a velocity that makes sense to rock band.
@@ -38,26 +40,29 @@ static uint8_t ConvertVelocity(uint8_t vel) {
     }
 }
 
-static bool HasNode(enum color c, enum pad_type t, bool use_or) {
-    struct node *cur = head;
-    while (cur != NULL) {
-        if (use_or) {
-            if (cur->map.color == c || cur->map.pad_type == t) {
-                return true;
-            }
-        } else {
-            if (cur->map.color == c && cur->map.pad_type == t) {
-                return true;
-            }
+static bool HasNodeWithColorAndType(enum color c, enum pad_type t) {
+    for (int count = 0, i = buffer.read; count < buffer.count; ++count, ++i >= BUFFER_SIZE ? i = 0 : 0) {
+        struct node *cur = &buffer.data[i];
+        if (cur->map.color == c && cur->map.pad_type == t) {
+            return true;
         }
-        cur = cur->next;
+    }
+    return false;
+}
+
+static bool HasNodeWithColorOrType(enum color c, enum pad_type t) {
+    for (int count = 0, i = buffer.read; count < buffer.count; ++count, ++i >= BUFFER_SIZE ? i = 0 : 0) {
+        struct node *cur = &buffer.data[i];
+        if (cur->map.color == c || cur->map.pad_type == t) {
+            return true;
+        }
     }
     return false;
 }
 
 static void UpdateHatState(struct hid_report *r) {
-    bool yellow = HasNode(YELLOW_COLOR, CYMBAL_TYPE, false);
-    bool blue = HasNode(BLUE_COLOR, CYMBAL_TYPE, false);
+    bool yellow = HasNodeWithColorAndType(YELLOW_COLOR, CYMBAL_TYPE);
+    bool blue = HasNodeWithColorAndType(BLUE_COLOR, CYMBAL_TYPE);
 
     r->hat = HAT_NEUTRAL;
     if (yellow && !blue) {
@@ -84,8 +89,7 @@ void HIDReport_Set(struct hid_report *r, struct midi_mapping map, uint8_t midi_v
         case ORANGE_COLOR:
             r->btns |= 1 << BASS;
             break;
-        default:
-            /* Suppress switch warning */
+        case NULL_COLOR:
             break;
     }
 
@@ -96,8 +100,7 @@ void HIDReport_Set(struct hid_report *r, struct midi_mapping map, uint8_t midi_v
         case CYMBAL_TYPE:
             r->btns |= 1 << CYMBAL;
             break;
-        default:
-            /* Suppress switch warning */
+        case NULL_TYPE:
             break;
     }
 
@@ -105,24 +108,25 @@ void HIDReport_Set(struct hid_report *r, struct midi_mapping map, uint8_t midi_v
         r->velocity[map.vel_byte] = ConvertVelocity(midi_vel);
     }
 
-    /* TODO: Check for memory allocation errors */
-    struct node* new_node = malloc(sizeof(struct node));
-    new_node->map = map;
-    new_node->age = MIDI_NOTE_TTL;
-    new_node->next = head;
-    head = new_node;
+    struct node *n = &buffer.data[buffer.write++];
+    n->map = map;
+    n->age = MIDI_NOTE_TTL;
+    if (buffer.write >= BUFFER_SIZE) {
+        buffer.write = 0;
+    }
+    ++buffer.count;
 
     UpdateHatState(r);
 }
 
 void HIDReport_Clear(struct hid_report *r, struct midi_mapping map) {
-    bool red = HasNode(RED_COLOR, NULL_TYPE, true);
-    bool yellow = HasNode(YELLOW_COLOR, NULL_TYPE, true);
-    bool blue = HasNode(BLUE_COLOR, NULL_TYPE, true);
-    bool green = HasNode(GREEN_COLOR, NULL_TYPE, true);
-    bool orange = HasNode(ORANGE_COLOR, NULL_TYPE, true);
-    bool pad = HasNode(NULL_COLOR, PAD_TYPE, true);
-    bool cymbal = HasNode(NULL_COLOR, CYMBAL_TYPE, true);
+    bool red = HasNodeWithColorOrType(RED_COLOR, NULL_TYPE);
+    bool yellow = HasNodeWithColorOrType(YELLOW_COLOR, NULL_TYPE);
+    bool blue = HasNodeWithColorOrType(BLUE_COLOR, NULL_TYPE);
+    bool green = HasNodeWithColorOrType(GREEN_COLOR, NULL_TYPE);
+    bool orange = HasNodeWithColorOrType(ORANGE_COLOR, NULL_TYPE);
+    bool pad = HasNodeWithColorOrType(NULL_COLOR, PAD_TYPE);
+    bool cymbal = HasNodeWithColorOrType(NULL_COLOR, CYMBAL_TYPE);
 
     switch (map.color) {
         case RED_COLOR:
@@ -172,25 +176,20 @@ void HIDReport_Clear(struct hid_report *r, struct midi_mapping map) {
 }
 
 void HIDReport_Age(struct hid_report *r) {
-    struct node *cur = head, *prev = NULL;
-
-    while (cur != NULL) {
+    int count = buffer.count;
+    int i = buffer.read;
+    while (count-- > 0) {
+        struct node *cur = &buffer.data[i];
         if (--cur->age == 0) {
-            struct midi_mapping map = cur->map;
-            struct node *del = cur;
-
-            cur = cur->next;
-            if (prev == NULL) {
-                head = cur;
-            } else {
-                prev->next = cur;
+            if (++buffer.read >= BUFFER_SIZE) {
+                buffer.read = 0;
             }
-            free(del);
+            --buffer.count;
 
-            HIDReport_Clear(r, map);
-        } else {
-            prev = cur;
-            cur = cur->next;
+            HIDReport_Clear(r, cur->map);
+        }
+        if (++i >= BUFFER_SIZE) {
+            i = 0;
         }
     }
 }
