@@ -3,14 +3,14 @@ ARCH                = AVR8
 BOARD               = MICRO
 F_CPU               = 16000000
 F_USB               = $(F_CPU)
-OPTIMIZATION        = 3
+OPTIMIZATION        = 2
 TARGET              = rb3-midi-adapter
 SRCDIR             := src
 SRC                 = $(SRCDIR)/$(TARGET).c $(SRCDIR)/Descriptors.c $(SRCDIR)/MIDI.c $(SRCDIR)/HIDReport.c $(SRCDIR)/PadConfig.c \
                       $(LUFA_SRC_USB) $(LUFA_SRC_USBCLASS)
 LUFA_PATH           = lufa/LUFA
 DEFS				=  # User-specified defines
-CC_FLAGS            = -DUSE_LUFA_CONFIG_HEADER -IConfig/ $(DEFS)
+CC_FLAGS            = -DUSE_LUFA_CONFIG_HEADER -IConfig/ $(DEFS) -Wextra -Wpedantic
 LD_FLAGS            =
 C_STANDARD          = gnu17
 AVRDUDE_PORT       ?= /dev/ttyACM0
