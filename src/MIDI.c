@@ -32,7 +32,12 @@ state = {
 /// MIDI circular buffer size.
 #define BUFFER_SIZE 256u
 
-/// Circular buffer for incoming MIDI bytes.
+/**
+ * @brief Circular buffer for incoming MIDI bytes.
+ *
+ * @note Buffer data may be modified from an interrupt handler so access to the
+ * buffer data should always be atomic.
+ */
 static struct {
     int read;           ///< Current read index for buffer.
     int write;          ///< Current write index for buffer.
@@ -91,6 +96,8 @@ static void HandleByte(uint8_t byte, struct hid_report *cur) {
  * @return true if there was data to dequeue otherwise return false.
  */
 static bool DequeueByte(uint8_t *out) {
+    // buffer data may be modified from within an interrupt handler so make
+    // access to buffer atomic.
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
         if (buffer.count == 0) {
             return false;
