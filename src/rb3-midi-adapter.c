@@ -75,10 +75,10 @@ void PinTask(void)
 void USART_Init(void)
 {
     /* Set baud rate */
-    #define BAUD MIDI_BAUD_RATE
-    #include <util/setbaud.h>
+#define BAUD MIDI_BAUD_RATE
+#include <util/setbaud.h>
     UBRR1 = UBRR_VALUE;
-    #undef BAUD
+#undef BAUD
 
     /* Enable USART receiver and receiver interrupts */
     UCSR1B |= _BV(RXEN1) | _BV(RXCIE1);
@@ -90,7 +90,7 @@ void USART_Init(void)
 /** USART receiver interrupt to handle incoming MIDI data on the RX pin */
 ISR(USART1_RX_vect)
 {
-    MIDI_EnqueueByte((uint8_t)UDR1);
+    MIDI_EnqueueByte(UDR1);
 }
 
 /** Event handler for the library USB Connection event. */

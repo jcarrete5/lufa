@@ -40,7 +40,7 @@ state = {
  */
 static struct {
     int read;           ///< Current read index for buffer.
-    int write;          ///< Current write index for buffer.
+    unsigned int write; ///< Current write index for buffer.
     int count;          ///< Incremented on write, decremented on read.
     uint8_t data[BUFFER_SIZE];  ///< Buffer data.
 }
