@@ -1,0 +1,4 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "rb3-midi-adapter-design-cache")(type "KiCad")(uri "${KIPRJMOD}/rb3-midi-adapter-design-cache.kicad_sym")(options "")(descr ""))
+)
