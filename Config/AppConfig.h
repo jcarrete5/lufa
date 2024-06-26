@@ -43,7 +43,10 @@
 #ifndef _APP_CONFIG_H_
 #define _APP_CONFIG_H_
 
-  #define MIDI_NOTE_TTL 2  /* Number of URB interrupts before a MIDI note is cleared from the HID report. */
-  #define MIDI_TASK_MAX_NUM_PROCESS_BYTES 48  /* Max number of bytes to process in MIDI_Task() per call */
+#define MIDI_NOTE_TTL                                                          \
+  2 /* Number of URB interrupts before a MIDI note is cleared from the HID     \
+       report. */
+#define MIDI_TASK_MAX_NUM_PROCESS_BYTES                                        \
+  48 /* Max number of bytes to process in MIDI_Task() per call */
 
 #endif

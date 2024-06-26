@@ -11,3 +11,7 @@ obj/
 
 # Generated files
 src/PadConfig.h
+
+# Clangd
+.cache/
+compile_commands.json

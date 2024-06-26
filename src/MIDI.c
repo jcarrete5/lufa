@@ -1,32 +1,34 @@
-#include <stdlib.h>
 #include <stdbool.h>
+#include <stdlib.h>
 #include <util/atomic.h>
 
+#include "../Config/AppConfig.h"
 #include "MIDI.h"
 #include "PadConfig.h"
-#include "../Config/AppConfig.h"
 
-
-union MIDIByte {
-    struct {
-        unsigned int code       :4;
-        unsigned int channel    :4;
-    } status;
-    uint8_t note;
-    uint8_t velocity;
-    uint8_t ctrl_num;
-    uint8_t prog_num;
+union MIDIByte
+{
+  struct
+  {
+    unsigned int code : 4;
+    unsigned int channel : 4;
+  } status;
+  uint8_t note;
+  uint8_t velocity;
+  uint8_t ctrl_num;
+  uint8_t prog_num;
 };
 
-static struct {
-    int data_idx;
-    union MIDIByte data[3];
-}
-state = {
-    .data_idx = 1,
+static struct
+{
+  int data_idx;
+  union MIDIByte data[3];
+} state = {
+  .data_idx = 1,
 };
 
-/* Latest MIDI status byte received. Determines how to parse subsequent bytes. */
+/* Latest MIDI status byte received. Determines how to parse subsequent bytes.
+ */
 #define CUR_STATUS state.data[0].status
 
 /// MIDI circular buffer size.
@@ -38,56 +40,64 @@ state = {
  * @note Buffer data may be modified from an interrupt handler so access to the
  * buffer data should always be atomic.
  */
-static struct {
-    int read;           ///< Current read index for buffer.
-    unsigned int write; ///< Current write index for buffer.
-    int count;          ///< Incremented on write, decremented on read.
-    uint8_t data[BUFFER_SIZE];  ///< Buffer data.
-}
-buffer = {
-    .read = 0,
-    .write = 0,
-    .count = 0,
-    .data = {0},
+static struct
+{
+  int read;                  ///< Current read index for buffer.
+  unsigned int write;        ///< Current write index for buffer.
+  int count;                 ///< Incremented on write, decremented on read.
+  uint8_t data[BUFFER_SIZE]; ///< Buffer data.
+} buffer = {
+  .read = 0,
+  .write = 0,
+  .count = 0,
+  .data = { 0 },
 };
 
-static void HandleStatus(uint8_t byte) {
-    CUR_STATUS.code = byte >> 4;
-    CUR_STATUS.channel = byte & 0x0f;
-    state.data_idx = 1;
+static void
+HandleStatus(uint8_t byte)
+{
+  CUR_STATUS.code = byte >> 4;
+  CUR_STATUS.channel = byte & 0x0f;
+  state.data_idx = 1;
 }
 
-static void HandleByte(uint8_t byte, struct hid_report *cur) {
-    /* Ignore timing clock status messages as they are not needed */
-    if (byte == MIDI_SYSTEM_TIMING_CLOCK) return;
+static void
+HandleByte(uint8_t byte, struct hid_report* cur)
+{
+  /* Ignore timing clock status messages as they are not needed */
+  if (byte == MIDI_SYSTEM_TIMING_CLOCK)
+    return;
 
-    if (MIDI_IS_STATUS_BYTE(byte)) {
-        HandleStatus(byte);
-    } else {
-        switch (CUR_STATUS.code) {
-            case MIDI_NoteOn:
-                if (state.data_idx == 1) {
-                    state.data[state.data_idx++].note = byte;
-                } else if (state.data_idx == 2) {
-                    uint8_t vel = byte;
-                    state.data[state.data_idx++].velocity = vel;
+  if (MIDI_IS_STATUS_BYTE(byte)) {
+    HandleStatus(byte);
+  } else {
+    switch (CUR_STATUS.code) {
+      case MIDI_NoteOn:
+        if (state.data_idx == 1) {
+          state.data[state.data_idx++].note = byte;
+        } else if (state.data_idx == 2) {
+          uint8_t vel = byte;
+          state.data[state.data_idx++].velocity = vel;
 
-                    /* Ignore vel = 0. Notes are signalled off after a period of time instead. */
-                    if (vel == 0) break;
+          /* Ignore vel = 0. Notes are signalled off after a period of time
+           * instead. */
+          if (vel == 0)
+            break;
 
-                    const struct midi_mapping *map = GetMIDIMapping(state.data[1].note);
-                    if (map == NULL) {
-                        break;
-                    }
+          const struct midi_mapping* map = GetMIDIMapping(state.data[1].note);
+          if (map == NULL) {
+            break;
+          }
 
-                    HIDReport_Set(cur, *map, vel);
-                }
-                break;
-            default:
-                // TODO: Set some LED output to indicate an unhandled message type received
-                break;
+          HIDReport_Set(cur, *map, vel);
         }
+        break;
+      default:
+        // TODO: Set some LED output to indicate an unhandled message type
+        // received
+        break;
     }
+  }
 }
 
 /**
@@ -95,38 +105,46 @@ static void HandleByte(uint8_t byte, struct hid_report *cur) {
  *
  * @return true if there was data to dequeue otherwise return false.
  */
-static bool DequeueByte(uint8_t *out) {
-    // buffer data may be modified from within an interrupt handler so make
-    // access to buffer atomic.
-    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-        if (buffer.count == 0) {
-            return false;
-        }
-        *out = buffer.data[buffer.read++];
-        if (buffer.read >= BUFFER_SIZE) {
-            buffer.read = 0;
-        }
-        --buffer.count;
+static bool
+DequeueByte(uint8_t* out)
+{
+  // buffer data may be modified from within an interrupt handler so make
+  // access to buffer atomic.
+  ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
+  {
+    if (buffer.count == 0) {
+      return false;
     }
+    *out = buffer.data[buffer.read++];
+    if (buffer.read >= BUFFER_SIZE) {
+      buffer.read = 0;
+    }
+    --buffer.count;
+  }
 
-    return true;
+  return true;
 }
 
-void MIDI_Task(struct hid_report *r) {
-    uint8_t byte;
-    uint8_t count = 0;
+void
+MIDI_Task(struct hid_report* r)
+{
+  uint8_t byte;
+  uint8_t count = 0;
 
-    while (count++ < MIDI_TASK_MAX_NUM_PROCESS_BYTES && DequeueByte(&byte)) {
-        HandleByte(byte, r);
-    }
+  while (count++ < MIDI_TASK_MAX_NUM_PROCESS_BYTES && DequeueByte(&byte)) {
+    HandleByte(byte, r);
+  }
 }
 
-void MIDI_EnqueueByte(uint8_t b) {
-    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
-        buffer.data[buffer.write++] = b;
-        if (buffer.write >= BUFFER_SIZE) {
-            buffer.write = 0;
-        }
-        ++buffer.count;
+void
+MIDI_EnqueueByte(uint8_t b)
+{
+  ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
+  {
+    buffer.data[buffer.write++] = b;
+    if (buffer.write >= BUFFER_SIZE) {
+      buffer.write = 0;
     }
+    ++buffer.count;
+  }
 }
