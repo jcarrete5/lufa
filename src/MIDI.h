@@ -33,4 +33,14 @@ midi_task(struct hid_report* cur);
 void
 midi_enqueue_byte(uint8_t b);
 
+/* Add MIDI byte the the queue to be handled later, atomically. */
+inline void
+midi_enqueue_byte_atomic(uint8_t b)
+{
+  ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
+  {
+    midi_enqueue_byte(b);
+  }
+}
+
 #endif /* MIDI_H_ */

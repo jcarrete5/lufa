@@ -139,12 +139,9 @@ midi_task(struct hid_report* r)
 void
 midi_enqueue_byte(uint8_t b)
 {
-  ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
-  {
-    buffer.data[buffer.write++] = b;
-    if (buffer.write >= BUFFER_SIZE) {
-      buffer.write = 0;
-    }
-    ++buffer.count;
+  buffer.data[buffer.write++] = b;
+  if (buffer.write >= BUFFER_SIZE) {
+    buffer.write = 0;
   }
+  ++buffer.count;
 }
