@@ -44,8 +44,8 @@ static struct
 {
   unsigned int read;  ///< Current read index for buffer.
   unsigned int write; ///< Current write index for buffer.
-  int count;                 ///< Incremented on write, decremented on read.
-  uint8_t data[BUFFER_SIZE]; ///< Buffer data.
+  volatile int count; ///< Incremented on write, decremented on read.
+  volatile uint8_t data[BUFFER_SIZE]; ///< Buffer data.
 } buffer = {
   .read = 0,
   .write = 0,
