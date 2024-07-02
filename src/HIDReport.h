@@ -1,8 +1,7 @@
-#ifndef HID_REPORT_H
-#define HID_REPORT_H
+#ifndef HID_REPORT_H_
+#define HID_REPORT_H_
 
 #include <stdint.h>
-#include <stdio.h>
 
 #include "PadConfig.h"
 
@@ -16,14 +15,18 @@ struct hid_report
 };
 
 void
-HIDReport_Set(struct hid_report* report, struct midi_mapping map, uint8_t vel);
-void
-HIDReport_Clear(struct hid_report* report, struct midi_mapping map);
-void
-HIDReport_Age(struct hid_report* report);
-void
-HIDReport_SetStartBtn(struct hid_report* r);
-void
-HIDReport_ClearStartBtn(struct hid_report* r);
+hid_report_set(struct hid_report* report, struct midi_mapping map, uint8_t vel);
 
-#endif /* HID_REPORT_H */
+void
+hid_report_clear(struct hid_report* report, struct midi_mapping map);
+
+void
+hid_report_age(struct hid_report* report);
+
+void
+hid_report_set_start_btn(struct hid_report* r);
+
+void
+hid_report_clear_start_btn(struct hid_report* r);
+
+#endif /* HID_REPORT_H_ */

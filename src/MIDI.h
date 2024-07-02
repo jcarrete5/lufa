@@ -1,8 +1,8 @@
-#ifndef MIDI_H
-#define MIDI_H
+#ifndef MIDI_H_
+#define MIDI_H_
 
 #include <stdint.h>
-#include <stdio.h>
+#include <util/atomic.h>
 
 #include "HIDReport.h"
 
@@ -11,7 +11,7 @@
 
 #define MIDI_IS_STATUS_BYTE(b) ((b) & (1 << 7))
 
-enum MIDI_StatusCode
+enum midi_status_code
 {
   MIDI_NoteOff = 0x08,
   MIDI_NoteOn,
@@ -23,10 +23,14 @@ enum MIDI_StatusCode
 };
 
 void
-MIDI_Task(struct hid_report* cur);
+midi_task(struct hid_report* cur);
 
-/* Add MIDI byte the the queue to be handled later */
+/*
+ * @brief Add MIDI byte the the queue to be handled later.
+ *
+ * This function is usually called from an ISR.
+ */
 void
-MIDI_EnqueueByte(uint8_t b);
+midi_enqueue_byte(uint8_t b);
 
-#endif /* MIDI_H */
+#endif /* MIDI_H_ */

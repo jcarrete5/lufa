@@ -56,9 +56,9 @@ static struct hid_report cur_hid_report = {
  * Buffer to hold the previously generated HID report, for comparison purposes
  * inside the HID class driver.
  */
-static uint8_t PrevHIDReportBuffer[sizeof(struct hid_report)];
+static uint8_t prev_hid_report_buffer[sizeof(struct hid_report)];
 
-USB_ClassInfo_HID_Device_t Generic_HID_Interface = {
+USB_ClassInfo_HID_Device_t generic_hid_interface = {
     .Config = {
         .InterfaceNumber = INTERFACE_ID_GenericHID,
         .ReportINEndpoint = {
@@ -66,13 +66,13 @@ USB_ClassInfo_HID_Device_t Generic_HID_Interface = {
             .Size = GENERIC_EPSIZE,
             .Banks = 1,
         },
-        .PrevReportINBuffer = PrevHIDReportBuffer,
-        .PrevReportINBufferSize = sizeof(PrevHIDReportBuffer),
+        .PrevReportINBuffer = prev_hid_report_buffer,
+        .PrevReportINBufferSize = sizeof(prev_hid_report_buffer),
     },
 };
 
 void
-PinTask(void)
+pin_task(void)
 {
   static int prev = 0;
   int cur = (START_BTN_PIN & _BV(START_BTN)) > 0 ? 0 : 1;
@@ -81,14 +81,14 @@ PinTask(void)
   prev = cur;
 
   if (cur == 1) {
-    HIDReport_SetStartBtn(&cur_hid_report);
+    hid_report_set_start_btn(&cur_hid_report);
   } else {
-    HIDReport_ClearStartBtn(&cur_hid_report);
+    hid_report_clear_start_btn(&cur_hid_report);
   }
 }
 
 void
-USART_Init(void)
+usart_init(void)
 {
   /* Set baud rate */
 #define BAUD MIDI_BAUD_RATE
@@ -106,7 +106,7 @@ USART_Init(void)
 /** USART receiver interrupt to handle incoming MIDI data on the RX pin */
 ISR(USART1_RX_vect)
 {
-  MIDI_EnqueueByte(UDR1);
+  midi_enqueue_byte(UDR1);
 }
 
 /** Event handler for the library USB Connection event. */
@@ -127,54 +127,53 @@ EVENT_USB_Device_Disconnect(void)
 void
 EVENT_USB_Device_ConfigurationChanged(void)
 {
-  bool ConfigSuccess = 1;
-  ConfigSuccess &= HID_Device_ConfigureEndpoints(&Generic_HID_Interface);
+  bool config_success = HID_Device_ConfigureEndpoints(&generic_hid_interface);
   USB_Device_EnableSOFEvents();
-  LEDs_SetAllLEDs(ConfigSuccess ? LEDMASK_USB_READY : LEDMASK_USB_ERROR);
+  LEDs_SetAllLEDs(config_success ? LEDMASK_USB_READY : LEDMASK_USB_ERROR);
 }
 
 /** Event handler for the library USB Control Request reception event. */
 void
 EVENT_USB_Device_ControlRequest(void)
 {
-  HID_Device_ProcessControlRequest(&Generic_HID_Interface);
+  HID_Device_ProcessControlRequest(&generic_hid_interface);
 }
 
 /** Event handler for the USB device Start Of Frame event. */
 void
 EVENT_USB_Device_StartOfFrame(void)
 {
-  HID_Device_MillisecondElapsed(&Generic_HID_Interface);
+  HID_Device_MillisecondElapsed(&generic_hid_interface);
 }
 
 bool
 CALLBACK_HID_Device_CreateHIDReport(
-  USB_ClassInfo_HID_Device_t* const HIDInterfaceInfo,
-  uint8_t* const ReportID,
-  const uint8_t ReportType,
-  void* ReportData,
-  uint16_t* const ReportSize)
+  [[maybe_unused]] USB_ClassInfo_HID_Device_t* const hid_interface_info,
+  [[maybe_unused]] uint8_t* const report_id,
+  [[maybe_unused]] const uint8_t report_type,
+  void* report_data,
+  uint16_t* const report_size)
 {
-  memcpy(ReportData, &cur_hid_report, sizeof(cur_hid_report));
-  *ReportSize = sizeof(struct hid_report);
-  HIDReport_Age(&cur_hid_report);
+  memcpy(report_data, &cur_hid_report, sizeof(cur_hid_report));
+  *report_size = sizeof(struct hid_report);
+  hid_report_age(&cur_hid_report);
   return true;
 }
 
 void
 CALLBACK_HID_Device_ProcessHIDReport(
-  USB_ClassInfo_HID_Device_t* const HIDInterfaceInfo,
-  const uint8_t ReportID,
-  const uint8_t ReportType,
-  const void* ReportData,
-  const uint16_t ReportSize)
+  [[maybe_unused]] USB_ClassInfo_HID_Device_t* const hid_interface_info,
+  [[maybe_unused]] const uint8_t report_id,
+  [[maybe_unused]] const uint8_t report_type,
+  [[maybe_unused]] const void* report_data,
+  [[maybe_unused]] const uint16_t report_size)
 {
   // TODO: Maybe signal something?
 }
 
 /** Configures the board hardware and chip peripherals */
 void
-SetupHardware(void)
+setup_hardware(void)
 {
   /* Disable watchdog if enabled by bootloader/fuses */
   MCUSR &= ~_BV(WDRF);
@@ -184,7 +183,7 @@ SetupHardware(void)
   clock_prescale_set(clock_div_1);
 
   /* Hardware Initialization */
-  USART_Init();
+  usart_init();
   LEDs_Init();
   USB_Init();
 
@@ -195,12 +194,12 @@ SetupHardware(void)
 int
 main(void)
 {
-  SetupHardware();
+  setup_hardware();
   LEDs_SetAllLEDs(LEDMASK_USB_NOTREADY);
   GlobalInterruptEnable();
-  for (;;) {
-    HID_Device_USBTask(&Generic_HID_Interface);
-    PinTask();
-    MIDI_Task(&cur_hid_report);
+  while (true) {
+    HID_Device_USBTask(&generic_hid_interface);
+    pin_task();
+    midi_task(&cur_hid_report);
   }
 }

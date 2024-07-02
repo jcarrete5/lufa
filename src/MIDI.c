@@ -6,7 +6,7 @@
 #include "MIDI.h"
 #include "PadConfig.h"
 
-union MIDIByte
+union midi_byte
 {
   struct
   {
@@ -22,7 +22,7 @@ union MIDIByte
 static struct
 {
   int data_idx;
-  union MIDIByte data[3];
+  union midi_byte data[3];
 } state = {
   .data_idx = 1,
 };
@@ -42,8 +42,8 @@ static struct
  */
 static struct
 {
-  int read;                  ///< Current read index for buffer.
-  unsigned int write;        ///< Current write index for buffer.
+  unsigned int read;  ///< Current read index for buffer.
+  unsigned int write; ///< Current write index for buffer.
   int count;                 ///< Incremented on write, decremented on read.
   uint8_t data[BUFFER_SIZE]; ///< Buffer data.
 } buffer = {
@@ -54,7 +54,7 @@ static struct
 };
 
 static void
-HandleStatus(uint8_t byte)
+handle_status(uint8_t byte)
 {
   CUR_STATUS.code = byte >> 4;
   CUR_STATUS.channel = byte & 0x0f;
@@ -62,14 +62,14 @@ HandleStatus(uint8_t byte)
 }
 
 static void
-HandleByte(uint8_t byte, struct hid_report* cur)
+handle_byte(uint8_t byte, struct hid_report* cur)
 {
   /* Ignore timing clock status messages as they are not needed */
   if (byte == MIDI_SYSTEM_TIMING_CLOCK)
     return;
 
   if (MIDI_IS_STATUS_BYTE(byte)) {
-    HandleStatus(byte);
+    handle_status(byte);
   } else {
     switch (CUR_STATUS.code) {
       case MIDI_NoteOn:
@@ -89,7 +89,7 @@ HandleByte(uint8_t byte, struct hid_report* cur)
             break;
           }
 
-          HIDReport_Set(cur, *map, vel);
+          hid_report_set(cur, *map, vel);
         }
         break;
       default:
@@ -106,7 +106,7 @@ HandleByte(uint8_t byte, struct hid_report* cur)
  * @return true if there was data to dequeue otherwise return false.
  */
 static bool
-DequeueByte(uint8_t* out)
+dequeue_byte(uint8_t* out)
 {
   // buffer data may be modified from within an interrupt handler so make
   // access to buffer atomic.
@@ -126,18 +126,18 @@ DequeueByte(uint8_t* out)
 }
 
 void
-MIDI_Task(struct hid_report* r)
+midi_task(struct hid_report* r)
 {
   uint8_t byte;
   uint8_t count = 0;
 
-  while (count++ < MIDI_TASK_MAX_NUM_PROCESS_BYTES && DequeueByte(&byte)) {
-    HandleByte(byte, r);
+  while (count++ < MIDI_TASK_MAX_NUM_PROCESS_BYTES && dequeue_byte(&byte)) {
+    handle_byte(byte, r);
   }
 }
 
 void
-MIDI_EnqueueByte(uint8_t b)
+midi_enqueue_byte(uint8_t b)
 {
   ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
   {

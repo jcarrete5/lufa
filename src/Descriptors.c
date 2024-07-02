@@ -1,5 +1,7 @@
 #include "Descriptors.h"
 
+#include <avr/pgmspace.h>
+
 /* Usage Pages */
 #define GENERIC_DESKTOP_CONTROLS 0x01
 #define BUTTON 0x09
@@ -23,7 +25,7 @@
  * send, and what it may be sent back from the host. Refer to the HID
  * specification for more details on HID report descriptors.
  */
-const USB_Descriptor_HIDReport_Datatype_t PROGMEM GenericReport[] = {
+const USB_Descriptor_HIDReport_Datatype_t PROGMEM generic_report[] = {
   HID_RI_USAGE_PAGE(8, GENERIC_DESKTOP_CONTROLS),
   HID_RI_USAGE(8, GAME_PAD),
   HID_RI_COLLECTION(8, APPLICATION),
@@ -96,7 +98,7 @@ const USB_Descriptor_HIDReport_Datatype_t PROGMEM GenericReport[] = {
  * version, control endpoint size and the number of device configurations. The
  * descriptor is read out by the USB host when the enumeration process begins.
  */
-const USB_Descriptor_Device_t PROGMEM DeviceDescriptor = {
+const USB_Descriptor_Device_t PROGMEM device_descriptor = {
   .Header = { .Size = sizeof(USB_Descriptor_Device_t), .Type = DTYPE_Device },
 
   .USBSpecification = VERSION_BCD(1, 1, 0),
@@ -124,11 +126,12 @@ const USB_Descriptor_Device_t PROGMEM DeviceDescriptor = {
  * process when selecting a configuration so that the host may correctly
  * communicate with the USB device.
  */
-const USB_Descriptor_Configuration_t PROGMEM ConfigurationDescriptor = {
+const struct usb_descriptor_configuration PROGMEM configuration_descriptor = {
   .Config = { .Header = { .Size = sizeof(USB_Descriptor_Configuration_Header_t),
                           .Type = DTYPE_Configuration },
 
-              .TotalConfigurationSize = sizeof(USB_Descriptor_Configuration_t),
+              .TotalConfigurationSize =
+                sizeof(struct usb_descriptor_configuration),
               .TotalInterfaces = 1,
 
               .ConfigurationNumber = 1,
@@ -160,7 +163,7 @@ const USB_Descriptor_Configuration_t PROGMEM ConfigurationDescriptor = {
                       .CountryCode = 0x00,
                       .TotalReportDescriptors = 1,
                       .HIDReportType = HID_DTYPE_Report,
-                      .HIDReportLength = sizeof(GenericReport) },
+                      .HIDReportLength = sizeof(generic_report) },
 
   .HID_ReportOUTEndpoint = { .Header = { .Size =
                                            sizeof(USB_Descriptor_Endpoint_t),
@@ -191,7 +194,7 @@ const USB_Descriptor_Configuration_t PROGMEM ConfigurationDescriptor = {
  * language ID table available at USB.org what languages the device supports for
  * its string descriptors.
  */
-const USB_Descriptor_String_t PROGMEM LanguageString =
+const USB_Descriptor_String_t PROGMEM language_string =
   USB_STRING_DESCRIPTOR_ARRAY(LANGUAGE_ID_ENG);
 
 /** Manufacturer descriptor string. This is a Unicode string containing the
@@ -199,15 +202,15 @@ const USB_Descriptor_String_t PROGMEM LanguageString =
  * by the host when the appropriate string ID is requested, listed in the Device
  *  Descriptor.
  */
-const USB_Descriptor_String_t PROGMEM ManufacturerString =
-  USB_STRING_DESCRIPTOR(L"Licensed by Sony Computer Entertainment America");
+const USB_Descriptor_String_t PROGMEM manufacturer_string =
+  USB_STRING_DESCRIPTOR(L"Created by Jason Carrete");
 
 /** Product descriptor string. This is a Unicode string containing the product's
  * details in human readable form, and is read out upon request by the host when
  * the appropriate string ID is requested, listed in the Device Descriptor.
  */
-const USB_Descriptor_String_t PROGMEM ProductString =
-  USB_STRING_DESCRIPTOR(L"Harmonix Drum kit for PlayStation®3");
+const USB_Descriptor_String_t PROGMEM product_string =
+  USB_STRING_DESCRIPTOR(L"Rock Band 3 Drum Kit MIDI Adapter");
 
 /** This function is called by the library when in device mode, and must be
  * overridden (see library "USB Descriptors" documentation) by the application
@@ -217,52 +220,52 @@ const USB_Descriptor_String_t PROGMEM ProductString =
  * be passed back and the appropriate descriptor sent back to the USB host.
  */
 uint16_t
-CALLBACK_USB_GetDescriptor(const uint16_t wValue,
-                           const uint16_t wIndex,
-                           const void** const DescriptorAddress)
+CALLBACK_USB_GetDescriptor(const uint16_t w_value,
+                           [[maybe_unused]] const uint16_t w_index,
+                           const void** const descriptor_address)
 {
-  const uint8_t DescriptorType = (wValue >> 8);
-  const uint8_t DescriptorNumber = (wValue & 0xFF);
+  const uint8_t descriptor_type = (w_value >> 8);
+  const uint8_t descriptor_number = (w_value & 0xFF);
 
-  const void* Address = NULL;
-  uint16_t Size = NO_DESCRIPTOR;
+  const void* address = NULL;
+  uint16_t size = NO_DESCRIPTOR;
 
-  switch (DescriptorType) {
+  switch (descriptor_type) {
     case DTYPE_Device:
-      Address = &DeviceDescriptor;
-      Size = sizeof(USB_Descriptor_Device_t);
+      address = &device_descriptor;
+      size = sizeof(USB_Descriptor_Device_t);
       break;
     case DTYPE_Configuration:
-      Address = &ConfigurationDescriptor;
-      Size = sizeof(USB_Descriptor_Configuration_t);
+      address = &configuration_descriptor;
+      size = sizeof(struct usb_descriptor_configuration);
       break;
     case DTYPE_String:
-      switch (DescriptorNumber) {
+      switch (descriptor_number) {
         case STRING_ID_Language:
-          Address = &LanguageString;
-          Size = pgm_read_byte(&LanguageString.Header.Size);
+          address = &language_string;
+          size = pgm_read_byte(&language_string.Header.Size);
           break;
         case STRING_ID_Manufacturer:
-          Address = &ManufacturerString;
-          Size = pgm_read_byte(&ManufacturerString.Header.Size);
+          address = &manufacturer_string;
+          size = pgm_read_byte(&manufacturer_string.Header.Size);
           break;
         case STRING_ID_Product:
-          Address = &ProductString;
-          Size = pgm_read_byte(&ProductString.Header.Size);
+          address = &product_string;
+          size = pgm_read_byte(&product_string.Header.Size);
           break;
       }
 
       break;
     case HID_DTYPE_HID:
-      Address = &ConfigurationDescriptor.HID_GenericHID;
-      Size = sizeof(USB_HID_Descriptor_HID_t);
+      address = &configuration_descriptor.HID_GenericHID;
+      size = sizeof(USB_HID_Descriptor_HID_t);
       break;
     case HID_DTYPE_Report:
-      Address = &GenericReport;
-      Size = sizeof(GenericReport);
+      address = &generic_report;
+      size = sizeof(generic_report);
       break;
   }
 
-  *DescriptorAddress = Address;
-  return Size;
+  *descriptor_address = address;
+  return size;
 }

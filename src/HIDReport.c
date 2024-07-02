@@ -1,5 +1,4 @@
 #include <stdbool.h>
-#include <stdlib.h>
 
 #include "../Config/AppConfig.h"
 #include "HIDReport.h"
@@ -22,7 +21,7 @@ static struct
  * Convert MIDI velocity value to a velocity that makes sense to rock band.
  */
 static uint8_t
-ConvertVelocity(uint8_t vel)
+convert_velocity(uint8_t vel)
 {
   /* Counter-intuitively, lower velocity values indicate stronger hits in rock
    * band */
@@ -45,7 +44,7 @@ ConvertVelocity(uint8_t vel)
 }
 
 static bool
-HasNodeWithColorAndType(enum color c, enum pad_type t)
+has_node_with_color_and_type(enum color c, enum pad_type t)
 {
   for (int count = 0, i = buffer.read; count < buffer.count;
        ++count, ++i >= BUFFER_SIZE ? i = 0 : 0) {
@@ -58,7 +57,7 @@ HasNodeWithColorAndType(enum color c, enum pad_type t)
 }
 
 static bool
-HasNodeWithColorOrType(enum color c, enum pad_type t)
+has_node_with_color_or_type(enum color c, enum pad_type t)
 {
   for (int count = 0, i = buffer.read; count < buffer.count;
        ++count, ++i >= BUFFER_SIZE ? i = 0 : 0) {
@@ -71,10 +70,10 @@ HasNodeWithColorOrType(enum color c, enum pad_type t)
 }
 
 static void
-UpdateHatState(struct hid_report* r)
+update_hat_state(struct hid_report* r)
 {
-  bool yellow = HasNodeWithColorAndType(YELLOW_COLOR, CYMBAL_TYPE);
-  bool blue = HasNodeWithColorAndType(BLUE_COLOR, CYMBAL_TYPE);
+  bool yellow = has_node_with_color_and_type(YELLOW_COLOR, CYMBAL_TYPE);
+  bool blue = has_node_with_color_and_type(BLUE_COLOR, CYMBAL_TYPE);
 
   r->hat = HAT_NEUTRAL;
   if (yellow && !blue) {
@@ -85,7 +84,7 @@ UpdateHatState(struct hid_report* r)
 }
 
 void
-HIDReport_Set(struct hid_report* r, struct midi_mapping map, uint8_t midi_vel)
+hid_report_set(struct hid_report* r, struct midi_mapping map, uint8_t midi_vel)
 {
   switch (map.color) {
     case RED_COLOR:
@@ -119,7 +118,7 @@ HIDReport_Set(struct hid_report* r, struct midi_mapping map, uint8_t midi_vel)
   }
 
   if (map.vel_byte != NULL_VEL) {
-    r->velocity[map.vel_byte] = ConvertVelocity(midi_vel);
+    r->velocity[map.vel_byte] = convert_velocity(midi_vel);
   }
 
   struct node* n = &buffer.data[buffer.write++];
@@ -130,19 +129,19 @@ HIDReport_Set(struct hid_report* r, struct midi_mapping map, uint8_t midi_vel)
   }
   ++buffer.count;
 
-  UpdateHatState(r);
+  update_hat_state(r);
 }
 
 void
-HIDReport_Clear(struct hid_report* r, struct midi_mapping map)
+hid_report_clear(struct hid_report* r, struct midi_mapping map)
 {
-  bool red = HasNodeWithColorOrType(RED_COLOR, NULL_TYPE);
-  bool yellow = HasNodeWithColorOrType(YELLOW_COLOR, NULL_TYPE);
-  bool blue = HasNodeWithColorOrType(BLUE_COLOR, NULL_TYPE);
-  bool green = HasNodeWithColorOrType(GREEN_COLOR, NULL_TYPE);
-  bool orange = HasNodeWithColorOrType(ORANGE_COLOR, NULL_TYPE);
-  bool pad = HasNodeWithColorOrType(NULL_COLOR, PAD_TYPE);
-  bool cymbal = HasNodeWithColorOrType(NULL_COLOR, CYMBAL_TYPE);
+  bool red = has_node_with_color_or_type(RED_COLOR, NULL_TYPE);
+  bool yellow = has_node_with_color_or_type(YELLOW_COLOR, NULL_TYPE);
+  bool blue = has_node_with_color_or_type(BLUE_COLOR, NULL_TYPE);
+  bool green = has_node_with_color_or_type(GREEN_COLOR, NULL_TYPE);
+  bool orange = has_node_with_color_or_type(ORANGE_COLOR, NULL_TYPE);
+  bool pad = has_node_with_color_or_type(NULL_COLOR, PAD_TYPE);
+  bool cymbal = has_node_with_color_or_type(NULL_COLOR, CYMBAL_TYPE);
 
   switch (map.color) {
     case RED_COLOR:
@@ -195,11 +194,11 @@ HIDReport_Clear(struct hid_report* r, struct midi_mapping map)
       break;
   }
 
-  UpdateHatState(r);
+  update_hat_state(r);
 }
 
 void
-HIDReport_Age(struct hid_report* r)
+hid_report_age(struct hid_report* r)
 {
   int count = buffer.count;
   int i = buffer.read;
@@ -211,7 +210,7 @@ HIDReport_Age(struct hid_report* r)
       }
       --buffer.count;
 
-      HIDReport_Clear(r, cur->map);
+      hid_report_clear(r, cur->map);
     }
     if (++i >= BUFFER_SIZE) {
       i = 0;
@@ -220,13 +219,13 @@ HIDReport_Age(struct hid_report* r)
 }
 
 void
-HIDReport_SetStartBtn(struct hid_report* r)
+hid_report_set_start_btn(struct hid_report* r)
 {
   r->btns |= 1 << START;
 }
 
 void
-HIDReport_ClearStartBtn(struct hid_report* r)
+hid_report_clear_start_btn(struct hid_report* r)
 {
   r->btns &= ~(1 << START);
 }
