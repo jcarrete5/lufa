@@ -10,9 +10,9 @@ SRC                 = $(SRCDIR)/$(TARGET).c $(SRCDIR)/Descriptors.c $(SRCDIR)/MI
                       $(LUFA_SRC_USB) $(LUFA_SRC_USBCLASS)
 LUFA_PATH           = lufa/LUFA
 DEFS				=  # User-specified defines
-CC_FLAGS            = -DUSE_LUFA_CONFIG_HEADER -IConfig/ $(DEFS) -Wextra -Wpedantic
+CC_FLAGS            = -DUSE_LUFA_CONFIG_HEADER -IConfig/ $(DEFS) -Wall -Wextra
 LD_FLAGS            =
-C_STANDARD          = gnu17
+C_STANDARD          = gnu2x
 AVRDUDE_PORT       ?= /dev/ttyACM0
 AVRDUDE_PROGRAMMER  = avr109
 
