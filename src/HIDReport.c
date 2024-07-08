@@ -1,4 +1,5 @@
 #include <stdbool.h>
+#include <stdint.h>
 
 #include "../Config/AppConfig.h"
 #include "HIDReport.h"
@@ -173,8 +174,7 @@ hid_report_clear(struct hid_report* r, struct midi_mapping map)
         break;
       r->btns &= ~(1 << BASS);
       break;
-    default:
-      /* Suppress switch warning */
+    case NULL_COLOR:
       break;
   }
 
@@ -189,8 +189,7 @@ hid_report_clear(struct hid_report* r, struct midi_mapping map)
         break;
       r->btns &= ~(1 << CYMBAL);
       break;
-    default:
-      /* Suppress switch warning */
+    case NULL_TYPE:
       break;
   }
 
