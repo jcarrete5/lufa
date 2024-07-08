@@ -52,12 +52,6 @@ static struct hid_report cur_hid_report = {
           0x00 }
 };
 
-/**
- * Buffer to hold the previously generated HID report, for comparison purposes
- * inside the HID class driver.
- */
-static uint8_t prev_hid_report_buffer[sizeof(struct hid_report)];
-
 USB_ClassInfo_HID_Device_t generic_hid_interface = {
     .Config = {
         .InterfaceNumber = INTERFACE_ID_GenericHID,
@@ -66,8 +60,8 @@ USB_ClassInfo_HID_Device_t generic_hid_interface = {
             .Size = GENERIC_EPSIZE,
             .Banks = 1,
         },
-        .PrevReportINBuffer = prev_hid_report_buffer,
-        .PrevReportINBufferSize = sizeof(prev_hid_report_buffer),
+        .PrevReportINBuffer = NULL,
+        .PrevReportINBufferSize = sizeof(struct hid_report),
     },
 };
 
